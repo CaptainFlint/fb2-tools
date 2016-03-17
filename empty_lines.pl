@@ -2,6 +2,7 @@
 
 use strict;
 use warnings;
+use utf8;
 
 if (scalar(@ARGV) < 3) {
 	print "Usage: $0 <reference-txt> <source-fb2> <target-fb2>\n";
@@ -11,17 +12,21 @@ if (scalar(@ARGV) < 3) {
 sub readFile($) {
 	my ($fname) = @_;
 	my $f;
-	open($f, '<', $fname) or die "Failed to open $fname for reading: $!";
+	open($f, '<:encoding(UTF-8)', $fname) or die "Failed to open $fname for reading: $!";
 	my @res = <$f>;
 	close($f);
 	return @res;
 }
 
 my $fo;
-my @txt = map { my $l = $_; $l =~ s/[ \x0d\x0a]| //g; $l; } readFile($ARGV[0]);
+my @txt = map { my $l = $_; $l =~ s/[ \x0d\x0a]|Â |\d//g; $l; } readFile($ARGV[0]);
 my @fb2 = readFile($ARGV[1]);
-# Strip leading/trailing spaces, XML tags and translate XML entities
-my @fb2s = map { my $l = $_; $l =~ s/[ \x0d\x0a]| //g; $l =~ s/<[^<>]*>//g; $l =~ s/&lt;/</g; $l =~ s/&gt;/>/g; $l =~ s/&amp;/&/g; $l; } @fb2;
+# Strip:
+# 1. all space characters (to compare sparse text),
+# 2. digits (because notes have different numbers),
+# 3. XML tags;
+# and translate XML entities.
+my @fb2s = map { my $l = $_; $l =~ s/[ \x0d\x0a]|Â |\d//g; $l =~ s/<[^<>]*>//g; $l =~ s/&lt;/</g; $l =~ s/&gt;/>/g; $l =~ s/&amp;/&/g; $l; } @fb2;
 
 my $last_el = 0;
 my @els = ();
@@ -37,19 +42,19 @@ for (my $i = 0; $i < scalar(@txt); ++$i) {
 			}
 		}
 		if (!$done) {
-			print "FAILED to find line in fb2: $i\n$txt[$i + 1]\n$fb2[3777]\n$fb2s[3777]\n";
-#exit;
+			print "FAILED to find line in fb2: txt index is " . ($i + 1) . "\n";
 		}
 	}
 }
 
-print "Found empty lines:\n" . join("\n", @els) . "\n";
-
 for my $idx (sort { $b <=> $a } @els) {
-	my $sp = (($fb2[$idx] =~ m/^(\s+)/) ? $1 : '');
-	splice(@fb2, $idx - 1, 0, "$sp<empty-line/>\n");
+	my $idx2 = $idx;
+	while ($fb2[--$idx2] =~ m/<(stanza|poem|cite)>/) { }
+	++$idx2;
+	my $sp = (($fb2[$idx2] =~ m/^(\s+)/) ? $1 : '');
+	splice(@fb2, $idx2, 0, "$sp<empty-line/>\n");
 }
 
-open($fo, '>', $ARGV[2]) or die "Failed to open $ARGV[2] for writing: $!";
+open($fo, '>:encoding(UTF-8)', $ARGV[2]) or die "Failed to open $ARGV[2] for writing: $!";
 print $fo $_ foreach (@fb2);
 close($fo);
