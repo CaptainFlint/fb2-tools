@@ -2,6 +2,7 @@
 
 use strict;
 use warnings;
+use utf8;
 
 if ((scalar(@ARGV) < 1) || ($ARGV[0] eq '-h') || ($ARGV[0] eq '--help')) {
 	print "Usage: $0 <fb2-file> [<output-file>]\n";
@@ -10,6 +11,30 @@ if ((scalar(@ARGV) < 1) || ($ARGV[0] eq '-h') || ($ARGV[0] eq '--help')) {
 
 # TODO:
 # * If there is a link, its target should contain a back-link.
+
+# Checks for quotation marks balance
+# Input arguments:
+#	$ln   - text line to be checked
+#	$data - arrayref where messages about disbalance should be added
+#	$id   - text line identifier for future references
+# Return value:
+#	none
+sub checkQuotes($$$) {
+	my ($ln, $data, $id) = @_;
+
+	# «French» quotes
+	my $qo = ($ln =~ s/«/$&/g) || 0;
+	my $qc = ($ln =~ s/»/$&/g) || 0;
+	if ($qo != $qc) {
+		push @$data, "French quotes $qo/$qc at $id";
+	}
+	# “English” quotes
+	$qo = ($ln =~ s/“/$&/g) || 0;
+	$qc = ($ln =~ s/”/$&/g) || 0;
+	if ($qo != $qc) {
+		push @$data, "English quotes $qo/$qc at $id";
+	}
+}
 
 # List of test procedures
 # Each test contains:
@@ -64,25 +89,37 @@ my @tests = (
 		}
 	},
 	{
-		# Mismatched quotes (may contain false positives when long quotation extends
+		# Mismatched quotes in lines (may contain false positives when long quotation extends
 		# over several paragraphs).
 		'enabled' => 1,
-		'name' => 'Quotes mismatch',
+		'name' => 'Quotes mismatch in lines',
 		'data' => [],
 		'analyze' => sub ($$$) {
 			my ($this, $ln, $idx) = @_;
-
-			# «French» quotes
-			my $qo = ($ln =~ s/«/$&/g) || 0;
-			my $qc = ($ln =~ s/»/$&/g) || 0;
-			if ($qo != $qc) {
-				push @{$this->{'data'}}, "French quotes mismatch at line $idx: opening - $qo, closing - $qc";
-			}
-			# “English” quotes
-			$qo = ($ln =~ s/“/$&/g) || 0;
-			$qc = ($ln =~ s/”/$&/g) || 0;
-			if ($qo != $qc) {
-				push @{$this->{'data'}}, "English quotes mismatch at line $idx: opening - $qo, closing - $qc";
+			checkQuotes($ln, $this->{'data'}, "line $idx");
+		},
+		'report' => sub ($$) {
+			my ($this, $fo) = @_;
+			print $fo join('', map { "\t$_\n" } @{$this->{'data'}});
+		}
+	},
+	{
+		# Mismatched quotes inside tags.
+		'enabled' => 1,
+		'name' => 'Quotes mismatch in tags',
+		'data' => [],
+		'analyze' => sub ($$$) {
+			my ($this, $ln, $idx) = @_;
+			while ($ln =~ m/<([^<> ]+)( [^<>]*)?>([^<>]+)<\/\1>/g) {
+				my ($tag, $params, $contents) = ($1, ($2 || ''), $3);
+				my $contents_cut;
+				if (length($contents) > 100) {
+					$contents_cut = substr($contents, 0, 50) . '<...>' . substr($contents, -50);
+				}
+				else {
+					$contents_cut = $contents;
+				}
+				checkQuotes($contents, $this->{'data'}, "line $idx: <$tag$params>$contents_cut</$tag>");
 			}
 		},
 		'report' => sub ($$) {
@@ -97,7 +134,7 @@ my @tests = (
 		'data' => [],
 		'analyze' => sub ($$$) {
 			my ($this, $ln, $idx) = @_;
-			my $num = ($ln =~ s/<\/(emphasis|strong)>\s([.,?!:;)&\]]|»|”)/$&/g);
+			my $num = ($ln =~ s/<\/(emphasis|strong)>\s([.,?!:;)&\]»”])/$&/g);
 			if ($num) {
 				push @{$this->{'data'}}, "At line $idx, number of entries: $num";
 			}
@@ -149,9 +186,10 @@ my $fi;
 my $fo;
 
 # Open input/output files
-open($fi, '<', $ARGV[0]) or die "Failed to open input file '$ARGV[0]' for reading: $!";
+open($fi, '<:encoding(UTF-8)', $ARGV[0]) or die "Failed to open input file '$ARGV[0]' for reading: $!";
 if ($ARGV[1]) {
-	open($fo, '>', $ARGV[1]) or die "Failed to open output file '$ARGV[1]' for writing: $!";
+	open($fo, '>:encoding(UTF-8)', $ARGV[1]) or die "Failed to open output file '$ARGV[1]' for writing: $!";
+	print $fo "\x{feff}";
 }
 else {
 	$fo = \*STDOUT;
