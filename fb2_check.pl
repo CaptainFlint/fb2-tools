@@ -13,6 +13,7 @@ if ((scalar(@ARGV) < 1) || ($ARGV[0] eq '-h') || ($ARGV[0] eq '--help')) {
 
 # List of test procedures
 # Each test contains:
+# 'enabled' - whether test should be run or not
 # 'name'    - user-friendly name of the test
 # 'analyze' - function that will be called for each line of the FB2 file;
 #             input: 1) the test object itself, 2) the source line to be analyzed, 3) line number
@@ -22,6 +23,7 @@ if ((scalar(@ARGV) < 1) || ($ARGV[0] eq '-h') || ($ARGV[0] eq '--help')) {
 my @tests = (
 	{
 		# File encoding must be UTF-8.
+		'enabled' => 1,
 		'name' => 'Encoding',
 		'data' => [],
 		'analyze' => sub ($$$) {
@@ -41,6 +43,7 @@ my @tests = (
 		# a) All links lead to existing targets.
 		# b) Each target has at least one link leading to it (may contain false positives:
 		#    orfan ID is not an error, but very suspicios situation).
+		'enabled' => 1,
 		'name' => 'Broken links / Orfan targets',
 		'data' => { 'targets' => {}, 'links' => {} },
 		'analyze' => sub ($$$) {
@@ -63,6 +66,7 @@ my @tests = (
 	{
 		# Mismatched quotes (may contain false positives when long quotation extends
 		# over several paragraphs).
+		'enabled' => 1,
 		'name' => 'Quotes mismatch',
 		'data' => [],
 		'analyze' => sub ($$$) {
@@ -88,6 +92,7 @@ my @tests = (
 	},
 	{
 		# There should be no space after closing italic/bold tag if it is at the end of phrase.
+		'enabled' => 1,
 		'name' => 'Spaces after italic/bold',
 		'data' => [],
 		'analyze' => sub ($$$) {
@@ -104,6 +109,7 @@ my @tests = (
 	},
 	{
 		# There should be no space as first character in the link
+		'enabled' => 1,
 		'name' => 'Links starting with space',
 		'data' => [],
 		'analyze' => sub ($$$) {
@@ -120,6 +126,7 @@ my @tests = (
 	},
 	{
 		# Template for adding new tests
+		'enabled' => 0,
 		'name' => 'Template',
 		'data' => [],
 		'analyze' => sub ($$$) {
@@ -155,12 +162,14 @@ my $idx = 0;
 while (my $ln = <$fi>) {
 	++$idx;
 	for my $test (@tests) {
+		next if (!$test->{'enabled'});
 		$test->{'analyze'}->($test, $ln, $idx);
 	}
 }
 
 # Now print collected test results
 for my $test (@tests) {
+	next if (!$test->{'enabled'});
 	print $fo "Report from test '" . $test->{'name'} . "':\n";
 	$test->{'report'}->($test, $fo);
 	print $fo "\n";
