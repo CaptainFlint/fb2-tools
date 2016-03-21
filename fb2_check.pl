@@ -22,17 +22,52 @@ if ((scalar(@ARGV) < 1) || ($ARGV[0] eq '-h') || ($ARGV[0] eq '--help')) {
 sub checkQuotes($$$) {
 	my ($ln, $data, $id) = @_;
 
-	# «French» quotes
-	my $qo = ($ln =~ s/«/$&/g) || 0;
-	my $qc = ($ln =~ s/»/$&/g) || 0;
-	if ($qo != $qc) {
-		push @$data, "French quotes $qo/$qc at $id";
+	# Walk over quote characters and calculate numbers.
+	# Negative number at any step means, closing quote appeared before opening.
+	# Non-zero number at the end meand non-balanced quotes.
+	$ln =~ s/[^«»“”]//g;
+	my $qf = 0; # «French» quotes
+	my $qe = 0; # “English” quotes
+	for (my $i = 0; $i < length($ln); ++$i) {
+		my $c = substr($ln, $i, 1);
+		if ($c eq '«') {
+			++$qf;
+		}
+		elsif ($c eq '»') {
+			--$qf;
+		}
+		elsif ($c eq '“') {
+			++$qe;
+		}
+		elsif ($c eq '”') {
+			--$qe;
+		}
+		if ($qf < 0) {
+			push @$data, "French closing quote before opening at $id";
+		}
+		if ($qe < 0) {
+			push @$data, "English closing quote before opening at $id";
+		}
 	}
-	# “English” quotes
-	$qo = ($ln =~ s/“/$&/g) || 0;
-	$qc = ($ln =~ s/”/$&/g) || 0;
-	if ($qo != $qc) {
-		push @$data, "English quotes $qo/$qc at $id";
+	if ($qf != 0) {
+		my $msg;
+		if ($qf > 0) {
+			$msg = "closed = opened - $qf";
+		}
+		else {
+			$msg = "closed = opened + " . abs($qf);
+		}
+		push @$data, "French quotes unbalanced ($msg) at $id";
+	}
+	if ($qe != 0) {
+		my $msg;
+		if ($qe > 0) {
+			$msg = "closed = opened - $qe";
+		}
+		else {
+			$msg = "closed = opened + " . abs($qe);
+		}
+		push @$data, "English quotes unbalanced ($msg) at $id";
 	}
 }
 
