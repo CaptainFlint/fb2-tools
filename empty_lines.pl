@@ -3,10 +3,52 @@
 use strict;
 use warnings;
 use utf8;
+use Encode qw/encode decode/; 
 
-if (scalar(@ARGV) < 3) {
-	print "Usage: $0 <newlines-txt> <source-fb2> { --out <target-fb2> | --marks <target-txt> } \n";
+my $errh; # Handle to error output file
+
+sub cleanQuotes($) {
+	return ($_[0] =~ m/^([\'\"])(.*)\1$/ ? $2 : $_[0]);
+}
+
+my @err_msg = ();
+my ($txtf, $fb2f, $outf, $repf, $errf);
+for my $arg (@ARGV) {
+	my $prefix = lc(substr($arg, 0, 5));
+	if ($prefix eq '-txt:') {
+		$txtf = cleanQuotes(substr($arg, 5));
+	}
+	elsif ($prefix eq '-fb2:') {
+		$fb2f = cleanQuotes(substr($arg, 5));
+	}
+	elsif ($prefix eq '-out:') {
+		$outf = cleanQuotes(substr($arg, 5));
+	}
+	elsif ($prefix eq '-rep:') {
+		$repf = cleanQuotes(substr($arg, 5));
+	}
+	elsif ($prefix eq '-err:') {
+		$errf = cleanQuotes(substr($arg, 5));
+	}
+	else {
+		push @err_msg, "\tunknown argument: '$arg'";
+	}
+}
+
+push @err_msg, "\t-txt argument must be present" if (!$txtf);
+push @err_msg, "\t-fb2 argument must be present" if (!$fb2f);
+push @err_msg, "\tat least one of the arguments -out and -rep must be present" if (!$outf && !$repf);
+if (scalar(@err_msg) > 0) {
+	print "Input arguments are invalid:\n";
+	print join("\n", @err_msg);
+	print "\n\nUsage: $0 -txt:<newlines-txt> -fb2:<source-fb2> [-out:<target-fb2>] [-rep:<target-txt>] [-err:<errors-txt>]\n";
 	exit 1;
+}
+
+sub printError($) {
+	my ($str) = @_;
+	print $errh $str if ($errh);
+	print encode("cp866", $str);    # Windows console works in cp866 by default, translate the text into it (as much as possible)
 }
 
 sub readFile($) {
@@ -18,9 +60,14 @@ sub readFile($) {
 	return @res;
 }
 
-my $fo;
-my @txt = map { my $l = $_; $l =~ s/[\x00-\x20\xa0\x{feff}]//g; $l; } readFile($ARGV[0]);
-my @fb2 = readFile($ARGV[1]);
+my @txt = readFile($txtf);
+my @fb2 = readFile($fb2f);
+
+if ($errf) {
+	open($errh, '>:encoding(UTF-8)', $errf) or die "Failed to open output file '$errf' for writing: $!";
+	print $errh "\x{feff}";
+}
+
 # Strip:
 # * all footnote references (they have different numbering),
 # * all XML tags;
@@ -52,9 +99,10 @@ my @txts2txt = ();
 my @els = ();   # for each index of the txt line => array of fb2 line indices
 my $idx = 0;
 for (my $i = 0; $i < scalar(@txt); ++$i) {
-	next if ($txt[$i] =~ m/^$/);
+	my $ln = ($txt[$i] =~ s/[\x00-\x20\xa0\x{feff}]//gr);
+	next if ($ln =~ m/^$/);
 	$txts2txt[$idx] = $i + 1;  # Adjust to 1-base
-	$txts[$idx] = $txt[$i];
+	$txts[$idx] = $ln;
 
 	$els[$idx] = [];
 	for (my $j = 0; $j < scalar(@fb2s); ++$j) {
@@ -69,7 +117,7 @@ for (my $i = 0; $i < scalar(@txt); ++$i) {
 for (my $i = 0; $i < scalar(@els); ++$i) {
 	my $num_els = scalar(@{$els[$i]});
 	if ($num_els == 0) {
-		print "FAILED to find line in fb2: txt index is $txts2txt[$i]\n";
+		printError("FAILED to find line in fb2: txt index is $txts2txt[$i]: " . $txt[$txts2txt[$i] - 1]);
 		next;
 	}
 	if ($num_els > 1) {
@@ -83,22 +131,21 @@ for (my $i = 0; $i < scalar(@els); ++$i) {
 		}
 		$num_els = scalar(@{$els[$i]});
 		if ($num_els > 1) {
-			print "DUPLICATE found in fb2 for txt line $txts2txt[$i]\n";
+			printError("DUPLICATE found in fb2 for txt line $txts2txt[$i]: " . $txt[$txts2txt[$i] - 1]);
 		}
 	}
 }
 
 # If we need only marks, fill in the separate output array
-my @marks = ();
+my @rep = ();
 
 # Finally, insert empty lines
 for (my $i = scalar(@els) - 1; $i >= 0; --$i) {
 	next if (scalar(@{$els[$i]}) != 1);
 	my $idx = $els[$i][0];
-	my @temp = ();
-	if ($ARGV[2] eq '--marks') {
-		unshift @temp, $fb2[$idx];
-	}
+	my @temp = ();  # Temporary block of data for inserting into @rep
+	unshift @temp, $fb2[$idx];
+
 	# If we are at the start of a cite, poem, title or epigraph, go backwards until we get out
 	while (1) {
 		--$idx;
@@ -106,24 +153,30 @@ for (my $i = scalar(@els) - 1; $i >= 0; --$i) {
 		# and at the same time does not contain the same closing tag (that is, while we are
 		# actually inside the tag).
 		last if (($fb2[$idx] !~ m/<(stanza|poem|cite|epigraph|title|subtitle)( [^<>]*|)>/) || ($fb2[$idx] =~ m/<\/$1>/));
-		if ($ARGV[2] eq '--marks') {
-			unshift @temp, $fb2[$idx];
-		}
+		unshift @temp, $fb2[$idx];
 	}
 	if ($fb2[$idx] =~ m/<empty-line\/>/) {
 		# Empty line already there, skipping
 		next;
 	}
 	++$idx;
-	if ($ARGV[2] eq '--marks') {
-		unshift @marks, @temp, "\n";
-	}
-	else {
-		my $sp = (($fb2[$idx] =~ m/^(\s+)/) ? $1 : '');
-		splice(@fb2, $idx, 0, "$sp<empty-line/>\n");
-	}
+	unshift @rep, @temp, "\n";
+	my $sp = (($fb2[$idx] =~ m/^(\s+)/) ? $1 : '');
+	splice(@fb2, $idx, 0, "$sp<empty-line/>\n");
 }
 
-open($fo, '>:encoding(UTF-8)', $ARGV[3]) or die "Failed to open $ARGV[2] for writing: $!";
-print $fo $_ foreach (($ARGV[2] eq '--marks') ? @marks : @fb2);
-close($fo);
+my $fo;
+if ($outf) {
+	open($fo, '>:encoding(UTF-8)', $outf) or die "Failed to open $outf for writing: $!";
+	print $fo $_ foreach (@fb2);
+	close($fo);
+}
+if ($repf) {
+	open($fo, '>:encoding(UTF-8)', $repf) or die "Failed to open $repf for writing: $!";
+	print $fo $_ foreach (@rep);
+	close($fo);
+}
+
+if ($errf) {
+	close($errh);
+}
