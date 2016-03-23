@@ -55,7 +55,8 @@ sub readFile($) {
 	my ($fname) = @_;
 	my $f;
 	open($f, '<:encoding(UTF-8)', $fname) or die "Failed to open $fname for reading: $!";
-	my @res = <$f>;
+	# Read the file contents and remove the BOM marker (U+FEFF)
+	my @res = map { s/\x{feff}//g } <$f>;
 	close($f);
 	return @res;
 }
@@ -69,14 +70,10 @@ if ($errf) {
 }
 
 # Strip:
-# * all footnote references (they have different numbering),
+# * all footnote references (they are not present in the text file),
 # * all XML tags;
-# * leading and trailing space characters,
+# * leading and trailing space characters;
 # then translate XML entities and cut off the first 50 characters of text.
-# After that prepare the text for non-strict comparison by removing:
-# * all control characters (may appear in newlines-only text files where footnotes refs were);
-# * all space characters (to compare sparse text),
-# * BOM marker (U+FEFF).
 my @fb2s = map {
 	my $l = $_;
 	$l =~ s|<a l:href="#_ftn\d+"><sup>\d+</sup></a>||g;
@@ -87,7 +84,6 @@ my @fb2s = map {
 	$l =~ s/^\s+//;
 	$l =~ s/\s+$//;
 	$l = substr($l, 0, 50);
-	$l =~ s/[\x00-\x20\xa0\x{feff}]//g;
 	$l;
 } @fb2;
 # Array containing only non-empty lines from the source txt
@@ -99,10 +95,9 @@ my @txts2txt = ();
 my @els = ();   # for each index of the txt line => array of fb2 line indices
 my $idx = 0;
 for (my $i = 0; $i < scalar(@txt); ++$i) {
-	my $ln = ($txt[$i] =~ s/[\x00-\x20\xa0\x{feff}]//gr);
-	next if ($ln =~ m/^$/);
+	next if ($txt[$i] =~ m/^$/);
 	$txts2txt[$idx] = $i + 1;  # Adjust to 1-base
-	$txts[$idx] = $ln;
+	$txts[$idx] = $txt[$i];
 
 	$els[$idx] = [];
 	for (my $j = 0; $j < scalar(@fb2s); ++$j) {
