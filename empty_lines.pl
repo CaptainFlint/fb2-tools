@@ -84,6 +84,8 @@ my @fb2s = map {
 	$l =~ s/^\s+//;
 	$l =~ s/\s+$//;
 	$l = substr($l, 0, 50);
+	# Remove remaining trailing whitespaces
+	$l =~ s/\s+$//;
 	$l;
 } @fb2;
 # Array containing only non-empty lines from the source txt
@@ -95,7 +97,10 @@ my @txts2txt = ();
 my @els = ();   # for each index of the txt line => array of fb2 line indices
 my $idx = 0;
 for (my $i = 0; $i < scalar(@txt); ++$i) {
+	# Remove control characters
 	my $ln = ($txt[$i] =~ s/[\x00-\x1f]//gr);
+	# Remove trailing whitespaces
+	$ln =~ s/\s+$//;
 	next if ($ln =~ m/^$/);
 	$txts2txt[$idx] = $i + 1;  # Adjust to 1-base
 	$txts[$idx] = $ln;
