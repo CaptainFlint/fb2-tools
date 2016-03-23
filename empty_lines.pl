@@ -5,6 +5,8 @@ use warnings;
 use utf8;
 use Encode qw/encode decode/; 
 
+use constant MAXLEN => 50;
+
 my $errh; # Handle to error output file
 
 sub cleanQuotes($) {
@@ -73,7 +75,7 @@ if ($errf) {
 # * all footnote references (they are not present in the text file),
 # * all XML tags;
 # * leading and trailing space characters;
-# then translate XML entities and cut off the first 50 characters of text.
+# then translate XML entities and leave only the first MAXLEN characters of text.
 my @fb2s = map {
 	my $l = $_;
 	$l =~ s|<a l:href="#_ftn\d+"><sup>\d+</sup></a>||g;
@@ -83,7 +85,7 @@ my @fb2s = map {
 	$l =~ s/&amp;/&/g;
 	$l =~ s/^\s+//;
 	$l =~ s/\s+$//;
-	$l = substr($l, 0, 50);
+	$l = substr($l, 0, MAXLEN);
 	# Remove remaining trailing whitespaces
 	$l =~ s/\s+$//;
 	$l;
@@ -99,6 +101,8 @@ my $idx = 0;
 for (my $i = 0; $i < scalar(@txt); ++$i) {
 	# Remove control characters
 	my $ln = ($txt[$i] =~ s/[\x00-\x1f]//gr);
+	# Leave only the first MAXLEN characters of text
+	$ln = substr($ln, 0, MAXLEN);
 	# Remove trailing whitespaces
 	$ln =~ s/\s+$//;
 	next if ($ln =~ m/^$/);
