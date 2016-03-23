@@ -108,8 +108,8 @@ my @tests = (
 		'data' => { 'targets' => {}, 'links' => {} },
 		'analyze' => sub ($$$) {
 			my ($this, $ln, $idx) = @_;
-			$ln =~ s/<[^<>]+ id="([^\"]+)"/$this->{'data'}->{'targets'}->{$1} = 1; $&;/eg;
-			$ln =~ s/<a l:href="#([^\"]+)"/$this->{'data'}->{'links'}->{$1} = 1; $&;/eg;
+			$this->{'data'}->{'targets'}->{$_} = 1 foreach ($ln =~ m/<[^<>]+ id="([^\"]+)"/g);
+			$this->{'data'}->{'links'}->{$_} = 1 foreach ($ln =~ m/<a l:href="#([^\"]+)"/g);
 		},
 		'report' => sub ($$) {
 			my ($this, $fo) = @_;
@@ -194,6 +194,84 @@ my @tests = (
 		'report' => sub ($$) {
 			my ($this, $fo) = @_;
 			print $fo join('', map { "\t$_\n" } @{$this->{'data'}});
+		}
+	},
+	{
+		# Comment should contain a backlink with the text identical to original link
+		'enabled' => 1,
+		'name' => 'Backlink contents',
+		'data' => { 'backrefs' => {}, 'links' => {}, 'errors' => [] },
+		'analyze' => sub ($$$) {
+			my ($this, $ln, $idx) = @_;
+			# Remember the current line ID
+			my @ids = ($ln =~ m/<[^<>]+ id="([^\"]+)"/g);
+			if (scalar(@ids) > 1) {
+				push @{$this->{'data'}->{'errors'}}, "WARNING: Several IDs in one line $idx (" . join(', ', @ids) . "!";
+			}
+			my $id = $ids[0];
+			if ($id) {
+				if (!defined($this->{'data'}->{'backrefs'}->{$id})) {
+					$this->{'data'}->{'backrefs'}->{$id} = [];
+				}
+				else {
+					push @{$this->{'data'}->{'errors'}}, "WARNING: Several lines have identical ID '$id'!";
+				}
+			}
+
+			# For each link we remember its contents and where it's located (to check back references)
+			while ($ln =~ m/<a l:href="#([^\"]+)"[^<>]*>(.*?)<\/a>/g) {
+				my ($href, $contents) = ($1, $2);
+				$contents =~ s/<[^<>]*>//g;
+				my %lnk = ( 'href' => $href, 'backref' => $id, 'contents' => $contents );
+				if (!defined($this->{'data'}->{'links'}->{$href})) {
+					$this->{'data'}->{'links'}->{$href} = [];
+				}
+				push @{$this->{'data'}->{'links'}->{$href}}, \%lnk;
+				if ($id) {
+					push @{$this->{'data'}->{'backrefs'}->{$id}}, \%lnk;
+				}
+			}
+		},
+		'report' => sub ($$) {
+			my ($this, $fo) = @_;
+			# Dump already collected errors if any
+			print $fo join('', map { "\t$_\n" } @{$this->{'data'}->{'errors'}});
+
+			# Checking that:
+			# 1. each link has at least one corresponding backlink;
+			# 2. the contents of the link is identical to the backlink's.
+			my $out = '';
+			for my $href (sort keys %{$this->{'data'}->{'links'}}) {
+				my @backrefs = @{$this->{'data'}->{'backrefs'}->{$href}};
+				for my $lnk (@{$this->{'data'}->{'links'}->{$href}}) {
+					my @found = ();
+					# Skip links that came from no-ID locations
+					next if (!$lnk->{'backref'});
+					# Search for possible backrefs
+					for my $backref (@backrefs) {
+						if ($backref->{'href'} eq $lnk->{'backref'}) {
+							push @found, $backref;
+						}
+					}
+					if (scalar(@found) == 0) {
+						print $fo "\tMissing expected backref '" . $lnk->{'backref'} . "' for link '" . $lnk->{'href'} . "' (text: '" . $lnk->{'contents'} . "')\n";
+					}
+					else {
+						my $txt_found = 0;
+						for my $backref (@found) {
+							if ($backref->{'contents'} eq $lnk->{'contents'}) {
+								$txt_found = 1;
+								last;
+							}
+						}
+						if (!$txt_found) {
+							$out .= "\tLink text for '" . $lnk->{'href'} . "' differs from backref text!\n\t\tSource text: '" . $lnk->{'contents'} . "'\n\t\tBackrefs:\n";
+							$out .= "\t\t\t'" . $_->{'contents'} . "'\n" foreach (@found);
+						}
+					}
+				}
+			}
+			print $fo "\n" . $out;
 		}
 	},
 	{
