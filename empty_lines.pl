@@ -56,7 +56,7 @@ sub readFile($) {
 	my $f;
 	open($f, '<:encoding(UTF-8)', $fname) or die "Failed to open $fname for reading: $!";
 	# Read the file contents and remove the BOM marker (U+FEFF)
-	my @res = map { s/\x{feff}//g } <$f>;
+	my @res = map { s/\x{feff}//gr } <$f>;
 	close($f);
 	return @res;
 }
@@ -95,9 +95,10 @@ my @txts2txt = ();
 my @els = ();   # for each index of the txt line => array of fb2 line indices
 my $idx = 0;
 for (my $i = 0; $i < scalar(@txt); ++$i) {
-	next if ($txt[$i] =~ m/^$/);
+	my $ln = ($txt[$i] =~ s/[\x00-\x1f]//gr);
+	next if ($ln =~ m/^$/);
 	$txts2txt[$idx] = $i + 1;  # Adjust to 1-base
-	$txts[$idx] = $txt[$i];
+	$txts[$idx] = $ln;
 
 	$els[$idx] = [];
 	for (my $j = 0; $j < scalar(@fb2s); ++$j) {
