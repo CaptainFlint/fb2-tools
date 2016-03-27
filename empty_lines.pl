@@ -7,8 +7,6 @@ use Encode qw/encode decode/;
 
 use constant MAXLEN => 50;
 
-my $errh; # Handle to error output file
-
 sub cleanQuotes($) {
 	return ($_[0] =~ m/^([\'\"])(.*)\1$/ ? $2 : $_[0]);
 }
@@ -49,7 +47,7 @@ if (scalar(@err_msg) > 0) {
 
 sub printError($) {
 	my ($str) = @_;
-	print $errh $str if ($errh);
+	push @err_msg, $str;
 	print encode("cp866", $str);    # Windows console works in cp866 by default, translate the text into it (as much as possible)
 }
 
@@ -65,11 +63,6 @@ sub readFile($) {
 
 my @txt = readFile($txtf);
 my @fb2 = readFile($fb2f);
-
-if ($errf) {
-	open($errh, '>:encoding(UTF-8)', $errf) or die "Failed to open output file '$errf' for writing: $!";
-	print $errh "\x{feff}";
-}
 
 # Strip:
 # * all footnote references (they are not present in the text file),
@@ -178,10 +171,19 @@ if ($outf) {
 }
 if ($repf) {
 	open($fo, '>:encoding(UTF-8)', $repf) or die "Failed to open $repf for writing: $!";
+	print $fo "\x{feff}";
+	if (!$errf && (scalar(@err_msg) > 0)) {
+		print $fo @err_msg;
+		print $fo '=' x 80 . "\n\n";
+	}
 	print $fo $_ foreach (@rep);
 	close($fo);
 }
 
 if ($errf) {
+	my $errh;
+	open($errh, '>:encoding(UTF-8)', $errf) or die "Failed to open output file '$errf' for writing: $!";
+	print $errh "\x{feff}";
+	print $errh @err_msg;
 	close($errh);
 }
