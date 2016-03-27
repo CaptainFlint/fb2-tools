@@ -160,7 +160,13 @@ for (my $i = scalar(@els) - 1; $i >= 0; --$i) {
 	++$idx;
 	unshift @rep, @temp, "\n";
 	my $sp = (($fb2[$idx] =~ m/^(\s+)/) ? $1 : '');
-	splice(@fb2, $idx, 0, "$sp<empty-line/>\n");
+	if (($fb2[$idx - 1] =~ m/<v( [^<>]*)?>/) && ($fb2[$idx] =~ m/<v( [^<>]*)?>/)){
+		$sp = substr($sp, 0, -1);
+		splice(@fb2, $idx, 0, "$sp</stanza>\n", "$sp<stanza>\n");
+	}
+	else {
+		splice(@fb2, $idx, 0, "$sp<empty-line/>\n");
+	}
 }
 
 my $fo;
