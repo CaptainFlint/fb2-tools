@@ -109,7 +109,7 @@ my @tests = (
 		'analyze' => sub ($$$) {
 			my ($this, $ln, $idx) = @_;
 			$this->{'data'}->{'targets'}->{$_} = 1 foreach ($ln =~ m/<[^<>]+ id="([^\"]+)"/g);
-			$this->{'data'}->{'links'}->{$_} = 1 foreach ($ln =~ m/<a l:href="#([^\"]+)"/g);
+			$this->{'data'}->{'links'}->{$_} = 1 foreach ($ln =~ m/<(?:a|image) l:href="#([^\"]+)"/g);
 		},
 		'report' => sub ($$) {
 			my ($this, $fo) = @_;
