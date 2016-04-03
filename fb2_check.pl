@@ -278,7 +278,7 @@ my @tests = (
 					}
 				}
 			}
-			print $fo "\n" . $out;
+			#print $fo "\n" . $out;
 		}
 	},
 	{
