@@ -242,31 +242,38 @@ my @tests = (
 			# 2. the contents of the link is identical to the backlink's.
 			my $out = '';
 			for my $href (sort keys %{$this->{'data'}->{'links'}}) {
-				my @backrefs = @{$this->{'data'}->{'backrefs'}->{$href}};
-				for my $lnk (@{$this->{'data'}->{'links'}->{$href}}) {
-					my @found = ();
-					# Skip links that came from no-ID locations
-					next if (!$lnk->{'backref'});
-					# Search for possible backrefs
-					for my $backref (@backrefs) {
-						if ($backref->{'href'} eq $lnk->{'backref'}) {
-							push @found, $backref;
-						}
-					}
-					if (scalar(@found) == 0) {
-						print $fo "\tMissing expected backref '" . $lnk->{'backref'} . "' for link '" . $lnk->{'href'} . "' (text: '" . $lnk->{'contents'} . "')\n";
-					}
-					else {
-						my $txt_found = 0;
-						for my $backref (@found) {
-							if ($backref->{'contents'} eq $lnk->{'contents'}) {
-								$txt_found = 1;
-								last;
+				my $backrefs = $this->{'data'}->{'backrefs'}->{$href};
+				my $lnks = $this->{'data'}->{'links'}->{$href};
+				if (!$backrefs) {
+					my $prefix = (scalar(@$lnks) > 1) ? 'texts' : 'text';
+					print $fo "\tBroken link '" . $href . "' ($prefix: '" . join(', ', map { $_->{'contents'} } @$lnks) . "'), skipping.\n";
+				}
+				else {
+					for my $lnk (@$lnks) {
+						my @found = ();
+						# Skip links that came from no-ID locations
+						next if (!$lnk->{'backref'});
+						# Search for possible backrefs
+						for my $backref (@$backrefs) {
+							if ($backref->{'href'} eq $lnk->{'backref'}) {
+								push @found, $backref;
 							}
 						}
-						if (!$txt_found) {
-							$out .= "\tLink text for '" . $lnk->{'href'} . "' differs from backref text!\n\t\tSource text: '" . $lnk->{'contents'} . "'\n\t\tBackrefs:\n";
-							$out .= "\t\t\t'" . $_->{'contents'} . "'\n" foreach (@found);
+						if (scalar(@found) == 0) {
+							print $fo "\tMissing expected backref '" . $lnk->{'backref'} . "' for link '" . $lnk->{'href'} . "' (text: '" . $lnk->{'contents'} . "')\n";
+						}
+						else {
+							my $txt_found = 0;
+							for my $backref (@found) {
+								if ($backref->{'contents'} eq $lnk->{'contents'}) {
+									$txt_found = 1;
+									last;
+								}
+							}
+							if (!$txt_found) {
+								$out .= "\tLink text for '" . $lnk->{'href'} . "' differs from backref text!\n\t\tSource text: '" . $lnk->{'contents'} . "'\n\t\tBackrefs:\n";
+								$out .= "\t\t\t'" . $_->{'contents'} . "'\n" foreach (@found);
+							}
 						}
 					}
 				}
