@@ -69,6 +69,13 @@ sub checkQuotes($$$) {
 	}
 }
 
+sub stripMarks($) {
+	my ($str) = @_;
+	$str =~ s/^[^0-9a-zа-яё]+//gi;
+	$str =~ s/[^0-9a-zа-яё]+$//gi;
+	return $str;
+}
+
 # List of test procedures
 # Each test contains:
 # 'enabled' - whether test should be run or not
@@ -237,7 +244,10 @@ my @tests = (
 
 			# Checking that:
 			# 1. each link has at least one corresponding backlink;
-			# 2. the contents of the link is identical to the backlink's.
+			# 2. if there is a backlink with text similar to the link's, it must be not similar but identical
+			#    (similarity is checked by stripping punctuation from start/end).
+			# Currently unused test (too many false positives):
+			# x. there must be at least one backlink with text identical to that of the link.
 			my $out = '';
 			for my $href (sort keys %{$this->{'data'}->{'links'}}) {
 				my $backrefs = $this->{'data'}->{'backrefs'}->{$href};
@@ -262,21 +272,31 @@ my @tests = (
 						}
 						else {
 							my $txt_found = 0;
+							my @problems = ();
 							for my $backref (@found) {
-								if ($backref->{'contents'} eq $lnk->{'contents'}) {
-									$txt_found = 1;
-									last;
+								if (stripMarks($backref->{'contents'}) eq stripMarks($lnk->{'contents'})) {
+									if ($backref->{'contents'} ne $lnk->{'contents'}) {
+										push @problems, $backref->{'contents'};
+									}
+									else {
+										$txt_found = 1;
+									}
 								}
 							}
-							if (!$txt_found) {
-								$out .= "\tLink text for '" . $lnk->{'href'} . "' differs from backref text!\n\t\tSource text: '" . $lnk->{'contents'} . "'\n\t\tBackrefs:\n";
-								$out .= "\t\t\t'" . $_->{'contents'} . "'\n" foreach (@found);
+							if (scalar(@problems) > 0) {
+								$out .= "\tLink text for '" . $lnk->{'href'} . "' differs in punctuation from backref text!\n\t\tSource text: '" . $lnk->{'contents'} . "'\n\t\tBackrefs:\n";
+								$out .= "\t\t\t'$_'\n" foreach (@problems);
 							}
+							# Unused test for presence of identical backlink
+							#if (!$txt_found) {
+							#	$out .= "\tLink text for '" . $lnk->{'href'} . "' differs from backref text!\n\t\tSource text: '" . $lnk->{'contents'} . "'\n\t\tBackrefs:\n";
+							#	$out .= "\t\t\t'" . $_->{'contents'} . "'\n" foreach (@found);
+							#}
 						}
 					}
 				}
 			}
-			#print $fo "\n" . $out;
+			print $fo "\n" . $out;
 		}
 	},
 	{
