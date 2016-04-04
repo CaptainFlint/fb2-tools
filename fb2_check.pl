@@ -279,13 +279,18 @@ my @tests = (
 										push @problems, $backref->{'contents'};
 									}
 									else {
-										$txt_found = 1;
+										++$txt_found;
 									}
 								}
 							}
 							if (scalar(@problems) > 0) {
-								$out .= "\tLink text for '" . $lnk->{'href'} . "' differs in punctuation from backref text!\n\t\tSource text: '" . $lnk->{'contents'} . "'\n\t\tBackrefs:\n";
-								$out .= "\t\t\t'$_'\n" foreach (@problems);
+								$out .= "\tLink text for '" . $lnk->{'href'} . "' differs in punctuation from backref text!\n\t\tSource text: '" . $lnk->{'contents'} . "'\n";
+								for (my $i = 0; $i < scalar(@problems); ++$i) {
+									$out .= sprintf("\t\t%-12s '%s'\n", 'Backref-' . ($i + 1) . ':', $problems[$i]);
+								}
+								if ($txt_found > 0) {
+									$out .= "\t\t+Identical backrefs ($txt_found " . (($txt_found > 1) ? 'items' : 'item') . ")\n";
+								}
 							}
 							# Unused test for presence of identical backlink
 							#if (!$txt_found) {
