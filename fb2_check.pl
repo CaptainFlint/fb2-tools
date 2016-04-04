@@ -285,8 +285,13 @@ my @tests = (
 							}
 							if (scalar(@problems) > 0) {
 								$out .= "\tLink text for '" . $lnk->{'href'} . "' differs in punctuation from backref text!\n\t\tSource text: '" . $lnk->{'contents'} . "'\n";
-								for (my $i = 0; $i < scalar(@problems); ++$i) {
-									$out .= sprintf("\t\t%-12s '%s'\n", 'Backref-' . ($i + 1) . ':', $problems[$i]);
+								if (scalar(@problems) == 1) {
+									$out .= "\t\tBackref:     '" . $problems[0] . "'\n";
+								}
+								else {
+									for (my $i = 0; $i < scalar(@problems); ++$i) {
+										$out .= sprintf("\t\t%-12s '%s'\n", 'Backref-' . ($i + 1) . ':', $problems[$i]);
+									}
 								}
 								if ($txt_found > 0) {
 									$out .= "\t\t+Identical backrefs ($txt_found " . (($txt_found > 1) ? 'items' : 'item') . ")\n";
