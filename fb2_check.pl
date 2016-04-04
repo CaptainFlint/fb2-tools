@@ -5,12 +5,10 @@ use warnings;
 use utf8;
 
 if ((scalar(@ARGV) < 1) || ($ARGV[0] eq '-h') || ($ARGV[0] eq '--help')) {
-	print "Usage: $0 <fb2-file> [<output-file>]\n";
+	print "Usage: $0 <fb2-file> [<output-file>] [-n]\n";
+	print "    -n   Do not auto-increment output file index.\n";
 	exit 1;
 }
-
-# TODO:
-# * If there is a link, its target should contain a back-link.
 
 # Checks for quotation marks balance
 # Input arguments:
@@ -309,7 +307,7 @@ my $fo;
 open($fi, '<:encoding(UTF-8)', $ARGV[0]) or die "Failed to open input file '$ARGV[0]' for reading: $!";
 if ($ARGV[1]) {
 	my $fout = $ARGV[1];
-	if (-f $fout) {
+	if ((!$ARGV[2] || ($ARGV[2] ne '-n')) && (-f $fout)) {
 		my $fname;
 		my $fext;
 		if ($fout =~ m/^(.*)(\.[^.]+)$/) {
