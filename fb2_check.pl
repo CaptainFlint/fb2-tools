@@ -308,7 +308,24 @@ my $fo;
 # Open input/output files
 open($fi, '<:encoding(UTF-8)', $ARGV[0]) or die "Failed to open input file '$ARGV[0]' for reading: $!";
 if ($ARGV[1]) {
-	open($fo, '>:encoding(UTF-8)', $ARGV[1]) or die "Failed to open output file '$ARGV[1]' for writing: $!";
+	my $fout = $ARGV[1];
+	if (-f $fout) {
+		my $fname;
+		my $fext;
+		if ($fout =~ m/^(.*)(\.[^.]+)$/) {
+			($fname, $fext) = ($1, $2);
+		}
+		else {
+			($fname, $fext) = ($fout, '');
+		}
+		my $idx = 0;
+		do {
+			++$idx;
+			$fout = $fname . "-$idx" . $fext;
+		} while (-f $fout);
+		print "\nWARNING! File $ARGV[1] exists, writing output into $fout instead!\n";
+	}
+	open($fo, '>:encoding(UTF-8)', $fout) or die "Failed to open output file '$fout' for writing: $!";
 	print $fo "\x{feff}";
 }
 else {
