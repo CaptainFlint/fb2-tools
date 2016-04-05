@@ -248,65 +248,86 @@ my @tests = (
 			#    (similarity is checked by stripping punctuation from start/end).
 			# Currently unused test (too many false positives):
 			# x. there must be at least one backlink with text identical to that of the link.
-			my $out = '';
+			
+			# %bugs collects problems of type No.2 in the following form:
+			#   key = "href1|text1|href2|text2|..." - sorted list of all href IDs and text contents of the links participating in the problem (to exclude duplicates)
+			#   value = [ $lnk1, $lnk2, ... ] - array of link objects for reporting
+			my %bugs = ();
+
+			# Enumerate all found unique link hrefs
 			for my $href (sort keys %{$this->{'data'}->{'links'}}) {
 				my $backrefs = $this->{'data'}->{'backrefs'}->{$href};
 				my $lnks = $this->{'data'}->{'links'}->{$href};
 				if (!$backrefs) {
+					# No backrefs found - it's a broken link, cannot process it
 					my $prefix = (scalar(@$lnks) > 1) ? 'texts' : 'text';
 					print $fo "\tBroken link '" . $href . "' ($prefix: '" . join(', ', map { $_->{'contents'} } @$lnks) . "'), skipping.\n";
+					next;
 				}
-				else {
-					for my $lnk (@$lnks) {
-						my @found = ();
-						# Skip links that came from no-ID locations
-						next if (!$lnk->{'backref'});
-						# Search for possible backrefs
-						for my $backref (@$backrefs) {
-							if ($backref->{'href'} eq $lnk->{'backref'}) {
-								push @found, $backref;
-							}
+
+				# Enumerate all links that lead to the currently selected href
+				for my $lnk (@$lnks) {
+					# Skip links that came from no-ID locations
+					next if (!$lnk->{'backref'});
+					# Search for possible backrefs
+					my @found = ();
+					for my $backref (@$backrefs) {
+						if ($backref->{'href'} eq $lnk->{'backref'}) {
+							push @found, $backref;
 						}
-						if (scalar(@found) == 0) {
-							print $fo "\tMissing expected backref '" . $lnk->{'backref'} . "' for link '" . $lnk->{'href'} . "' (text: '" . $lnk->{'contents'} . "')\n";
-						}
-						else {
-							my $txt_found = 0;
-							my @problems = ();
-							for my $backref (@found) {
-								if (stripMarks($backref->{'contents'}) eq stripMarks($lnk->{'contents'})) {
-									if ($backref->{'contents'} ne $lnk->{'contents'}) {
-										push @problems, $backref->{'contents'};
-									}
-									else {
-										++$txt_found;
-									}
-								}
-							}
-							if (scalar(@problems) > 0) {
-								$out .= "\tLink text for '" . $lnk->{'href'} . "' differs in punctuation from backref text!\n\t\tSource text: '" . $lnk->{'contents'} . "'\n";
-								if (scalar(@problems) == 1) {
-									$out .= "\t\tBackref:     '" . $problems[0] . "'\n";
+					}
+
+					# Process the found backrefs
+					if (scalar(@found) == 0) {
+						# No backrefs - report this immediately (block No.1)
+						print $fo "\tMissing expected backref '" . $lnk->{'backref'} . "' for link '" . $lnk->{'href'} . "' (text: '" . $lnk->{'contents'} . "')\n";
+					}
+					else {
+						# Now search for those backrefs that have contents different from the original link's only
+						# by leading/trailing punctuation
+						my $txt_found = 0; # Number of identical backrefs
+						my @problems = (); # List of non-identical backrefs
+						for my $backref (@found) {
+							if (stripMarks($backref->{'contents'}) eq stripMarks($lnk->{'contents'})) {
+								if ($backref->{'contents'} ne $lnk->{'contents'}) {
+									push @problems, $backref;
 								}
 								else {
-									for (my $i = 0; $i < scalar(@problems); ++$i) {
-										$out .= sprintf("\t\t%-12s '%s'\n", 'Backref-' . ($i + 1) . ':', $problems[$i]);
-									}
-								}
-								if ($txt_found > 0) {
-									$out .= "\t\t+Identical backrefs ($txt_found " . (($txt_found > 1) ? 'items' : 'item') . ")\n";
+									++$txt_found;
 								}
 							}
-							# Unused test for presence of identical backlink
-							#if (!$txt_found) {
-							#	$out .= "\tLink text for '" . $lnk->{'href'} . "' differs from backref text!\n\t\tSource text: '" . $lnk->{'contents'} . "'\n\t\tBackrefs:\n";
-							#	$out .= "\t\t\t'" . $_->{'contents'} . "'\n" foreach (@found);
-							#}
+						}
+
+						if (scalar(@problems) > 0) {
+							# Check that the problem list was not found earlier and prepare for output
+							# First, add the original link to the list (it will be part of the report)
+							@problems = sort { ($a->{'href'} cmp $b->{'href'}) || ($a->{'contents'} cmp $b->{'contents'}) } ($lnk, @problems);
+							# Now, construct the unique key to identify this specific set of problematic backrefs
+							my $key = '';
+							my $val = [];
+							for my $elem (@problems) {
+								$key .= $elem->{'href'} . '|' . $elem->{'contents'} . '|';
+								push @$val, $elem;
+							}
+							# Finally, check if the problem is already recorded, and if not, add it
+							if (!$bugs{$key}) {
+								$bugs{$key} = $val;
+							}
 						}
 					}
 				}
 			}
-			print $fo "\n" . $out;
+
+			# Start printing block No.2
+			print $fo "\n";
+			for my $bugid (sort keys %bugs) {
+				print $fo "\tPunctuation problem:\n";
+				# Calculate maximum length among all href IDs from this problem (reverse-sort all lengths and take the first element)
+				my $maxlen = (sort { $b <=> $a } map { length($_->{'href'}) } @{$bugs{$bugid}})[0] + 1;
+				for my $elem (@{$bugs{$bugid}}) {
+					printf $fo "\t\t%-" . $maxlen . "s '%s'\n", $elem->{'href'} . ':', $elem->{'contents'};
+				}
+			}
 		}
 	},
 	{
