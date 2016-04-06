@@ -287,7 +287,9 @@ my @tests = (
 					# Process the found backrefs
 					if (scalar(@found) == 0) {
 						# No backrefs - report this immediately (block No.1)
-						print $fo "\tMissing expected backref '" . $lnk->{'backref'} . "' for link '" . $lnk->{'href'} . "' (text: '" . $lnk->{'contents'} . "')\n";
+						if (($lnk->{'contents'} ne '&lt;Заглавие&gt;') && ($lnk->{'contents'} ne 'примечание')) {
+							print $fo "\tMissing expected backref '" . $lnk->{'backref'} . "' for link '" . $lnk->{'href'} . "' (text: '" . $lnk->{'contents'} . "')\n";
+						}
 					}
 					else {
 						# Now search for those backrefs that have contents different from the original link's only
