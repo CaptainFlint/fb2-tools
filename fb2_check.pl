@@ -334,7 +334,7 @@ my @tests = (
 				# Calculate maximum length among all href IDs from this problem (reverse-sort all lengths and take the first element)
 				my $maxlen = (sort { $b <=> $a } map { length($_->{'href'}) } @{$bugs{$bugid}})[0] + 1;
 				for my $elem (@{$bugs{$bugid}}) {
-					printf $fo "\t\t%-" . $maxlen . "s '%s'\n", $elem->{'href'} . ':', $elem->{'contents'};
+					printf $fo "\t\t%-" . $maxlen . "s '%s'\n", $elem->{'href'} . ':', $elem->{'contents'} . '</a>';
 				}
 			}
 		}
