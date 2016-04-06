@@ -12,13 +12,20 @@ if ((scalar(@ARGV) < 1) || ($ARGV[0] eq '-h') || ($ARGV[0] eq '--help')) {
 
 # Checks for quotation marks balance
 # Input arguments:
-#	$ln   - text line to be checked
-#	$data - arrayref where messages about disbalance should be added
-#	$id   - text line identifier for future references
+#	$ln        - text line to be checked
+#	$data      - arrayref where messages about disbalance should be added
+#	$id        - text line identifier for future references
+#	$id_suffix - [optional] supplemental identifier text to be appened at the end of the message
 # Return value:
 #	none
-sub checkQuotes($$$) {
-	my ($ln, $data, $id) = @_;
+sub checkQuotes($$$;$) {
+	my ($ln, $data, $id, $id_suffix) = @_;
+	if (!$id_suffix) {
+		$id_suffix = '';
+	}
+	else {
+		$id_suffix = ": $id_suffix";
+	}
 
 	# Walk over quote characters and calculate numbers.
 	# Negative number at any step means, closing quote appeared before opening.
@@ -50,22 +57,22 @@ sub checkQuotes($$$) {
 	if ($qf != 0) {
 		my $msg;
 		if ($qf > 0) {
-			$msg = "closed = opened - $qf";
+			$msg = "-$qf";
 		}
 		else {
-			$msg = "closed = opened + " . abs($qf);
+			$msg = "+" . abs($qf);
 		}
-		push @$data, "French quotes unbalanced ($msg) at $id";
+		push @$data, "French at $id: $msg$id_suffix";
 	}
 	if ($qe != 0) {
 		my $msg;
 		if ($qe > 0) {
-			$msg = "closed = opened - $qe";
+			$msg = "-$qe";
 		}
 		else {
-			$msg = "closed = opened + " . abs($qe);
+			$msg = "+" . abs($qe);
 		}
-		push @$data, "English quotes unbalanced ($msg) at $id";
+		push @$data, "English at $id: $msg$id_suffix";
 	}
 }
 
@@ -159,7 +166,7 @@ my @tests = (
 				else {
 					$contents_cut = $contents;
 				}
-				checkQuotes($contents, $this->{'data'}, "line $idx: <$tag$params>$contents_cut</$tag>");
+				checkQuotes($contents, $this->{'data'}, "line $idx", "<$tag$params>$contents_cut</$tag>");
 			}
 		},
 		'report' => sub ($$) {
