@@ -94,6 +94,8 @@ my $idx = 0;
 for (my $i = 0; $i < scalar(@txt); ++$i) {
 	# Remove control characters
 	my $ln = ($txt[$i] =~ s/[\x00-\x1f]//gr);
+	# Remove leading whitespaces (only real spaces)
+	$ln =~ s/^ +//;
 	# Leave only the first MAXLEN characters of text
 	$ln = substr($ln, 0, MAXLEN);
 	# Remove trailing whitespaces
