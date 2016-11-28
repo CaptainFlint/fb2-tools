@@ -5,7 +5,7 @@ use warnings;
 use utf8;
 
 if ((scalar(@ARGV) < 1) || ($ARGV[0] eq '-h') || ($ARGV[0] eq '--help')) {
-	print "Usage: $0 <fb2-file> [<output-file>]\n";
+	print "Usage: $0 <fb2-file> <output-file>\n";
 	exit 1;
 }
 
@@ -78,8 +78,7 @@ if (!$enc) {
 }
 
 open($fi, '<:encoding(' . $enc . ')', $ARGV[0]) or die "Failed to open input file '$ARGV[0]' for reading: $!";
-my $fout = $ARGV[1] || $ARGV[0];
-open($fo, '>:encoding(UTF-8)', $fout) or die "Failed to open output file '$fout' for writing: $!";
+open($fo, '>:encoding(UTF-8)', $ARGV[1]) or die "Failed to open output file '$ARGV[1]' for writing: $!";
 
 # Read the input file line-by-line and apply fixes for each line
 my $idx = 0;
