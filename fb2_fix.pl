@@ -22,6 +22,8 @@ my @fixes = (
 		'enabled' => 1,
 		'func' => sub ($$$) {
 			my ($this, $ln, $idx) = @_;
+			# Replace encoding in the XML definition tag with utf-8.
+			# (Actual file encoding is ensured by the :encoding(UTF-8) filter in open() call.)
 			$ln =~ s!(<\?xml.*encoding=")[^\"]+(".*\?>)!$1utf-8$2!;
 			return $ln;
 		}
@@ -31,7 +33,9 @@ my @fixes = (
 		'enabled' => 1,
 		'func' => sub ($$$) {
 			my ($this, $ln, $idx) = @_;
-			$ln =~ s!_ftn(\d+)\">\s*\[(\d+)\]\s*!_ftn$1\"><a l:href="\x23_ftnref$2"><sup>$2</sup></a> !g;
+			# Search for an ID ending with _ftnNN followed by a footnote in form of [NN] (with or without spaces).
+			# Remove the prefix from the ID, and replace the footnote with superscripted back-link and single space.
+			$ln =~ s!id="[^\"]*_ftn(\d+)">\s*\[(\d+)\]\s*!id="_ftn$1"><a l:href="#_ftnref$2"><sup>$2</sup></a> !g;
 			return $ln;
 		}
 	},
@@ -40,16 +44,20 @@ my @fixes = (
 		'enabled' => 1,
 		'func' => sub ($$$) {
 			my ($this, $ln, $idx) = @_;
-			$ln =~ s!_ftnref(\d+)\">(.*?)\s*\[(\d+)\]\s*!_ftnref$1\">$2<a l:href="#_ftn$3"><sup>$3</sup></a>!g;
+			# Search for an ID ending with _ftnrefNN followed by some text and a footnote in form of [NN] (with or without spaces).
+			# Remove the prefix from the ID, and replace the footnote with superscripted link.
+			$ln =~ s!id="[^\"]*_ftnref(\d+)">(.*?)\s*\[(\d+)\]\s*!id="_ftnref$1">$2<a l:href="#_ftn$3"><sup>$3</sup></a>!g;
 			return $ln;
 		}
 	},
 	{
 		# Fix letter titles
-		'enabled' => 0,
+		'enabled' => 1,
 		'func' => sub ($$$) {
 			my ($this, $ln, $idx) = @_;
-			# ((Аркадий и Борис|Аркадий|Борис)\s*—\s*.*?|—\s*(Аркадию|Борису)),.*?\s+19\d\d
+			# Search for paragraphs that contain typical title for mail correspondence.
+			# Replace <p> with <subtitle>, keeping all attributes.
+			$ln =~ s!<p( [^<>]*|)>(.*((Аркадий и Борис|Аркадий|Борис)\s*—\s*.*?|—\s*(Аркадию|Борису)),.*?\s+19\d\d.*)</p>!<subtitle$1>$2</subtitle>!g;
 			return $ln;
 		}
 	},
