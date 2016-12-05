@@ -29,6 +29,18 @@ my @fixes = (
 		}
 	},
 	{
+		# Remove AutBody_0 prefix
+		'enabled' => 1,
+		'func' => sub ($$$) {
+			my ($this, $ln, $idx) = @_;
+			# Remove AutBody_0 prefix from IDs
+			$ln =~ s!id=\"AutBody_0!id=\"!g;
+			# Remove AutBody_0 prefix from link targets
+			$ln =~ s!href=\"\x23AutBody_0!href=\"\x23!g;
+			return $ln;
+		}
+	},
+	{
 		# Add backrefs from footnotes
 		'enabled' => 1,
 		'func' => sub ($$$) {
