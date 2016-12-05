@@ -41,24 +41,20 @@ my @fixes = (
 		}
 	},
 	{
-		# Add backrefs from footnotes
+		# Fix footnotes
 		'enabled' => 1,
+		'data' => {},
 		'func' => sub ($$$) {
 			my ($this, $ln, $idx) = @_;
-			# Search for an ID ending with _ftnNN followed by a footnote in form of [NN] (with or without spaces).
-			# Remove the prefix from the ID, and replace the footnote with superscripted back-link and single space.
-			$ln =~ s!id="[^\"]*_ftn(\d+)">\s*\[(\d+)\]\s*!id="_ftn$1"><a l:href="#_ftnref$2"><sup>$2</sup></a> !g;
-			return $ln;
-		}
-	},
-	{
-		# Add links to footnotes
-		'enabled' => 1,
-		'func' => sub ($$$) {
-			my ($this, $ln, $idx) = @_;
-			# Search for an ID ending with _ftnrefNN followed by some text and a footnote in form of [NN] (with or without spaces).
-			# Remove the prefix from the ID, and replace the footnote with superscripted link.
-			$ln =~ s!id="[^\"]*_ftnref(\d+)">(.*?)\s*\[(\d+)\]\s*!id="_ftnref$1">$2<a l:href="#_ftn$3"><sup>$3</sup></a>!g;
+			# Search for a non-footnote ID followed by some text and a footnote in form of [NN] (with or without spaces).
+			# Replace the footnote with superscripted link and store the ID for back-link.
+			# Repeat in case there are several footnotes.
+			while ($ln =~ s|id="(?!_ftn\d)([^\"]*)">(.*?)\s*\[(\d+)\]\s*|id="$1">$2<a l:href="#_ftn$3"><sup>$3</sup></a>|g) {
+				$this->{'data'}->{$3} = $1;
+			}
+			# Search for an ID _ftnNN followed by a footnote in form of [NN] (with or without spaces).
+			# Replace the footnote with superscripted back-link (using the stored ID) and single space.
+			$ln =~ s!id="(_ftn\d+)">\s*\[(\d+)\]\s*!id="$1"><a l:href="#$this->{'data'}->{$2}"><sup>$2</sup></a> !g;
 			return $ln;
 		}
 	},
