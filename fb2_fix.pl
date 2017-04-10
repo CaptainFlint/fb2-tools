@@ -49,6 +49,7 @@ my @fixes = (
 			# Search for a non-footnote ID followed by some text and a footnote in form of [NN] (with or without spaces).
 			# Replace the footnote with superscripted link and store the ID for back-link.
 			# Repeat in case there are several footnotes.
+			# TODO: Do not remove space if footnote is followed by a word.
 			while ($ln =~ s|id="(?!_ftn\d)([^\"]*)">(.*?)\s*\[(\d+)\]\s*|id="$1">$2<a l:href="#_ftn$3"><sup>$3</sup></a>|g) {
 				$this->{'data'}->{$3} = $1;
 			}

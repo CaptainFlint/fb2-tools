@@ -341,6 +341,25 @@ my @tests = (
 	},
 	{
 		# Template for adding new tests
+		'enabled' => 1,
+		'name' => 'Joined words',
+		'data' => [],
+		'analyze' => sub ($$$) {
+			my ($this, $ln, $idx) = @_;
+			return if (($ln =~ m/<binary /) .. ($ln =~ m/<\/binary>/));
+			my $ln_text = ($ln =~ s/<[^<>]*>//gr);
+			my @matches = grep { $_ !~ m/^(FictionBook|ДоУ|ЛитГаз|МолГв|УнС)$/ } ($ln_text =~ m/[a-zA-Zа-яёА-ЯЁ]*(?:[a-z][A-Z]|[а-яё][А-ЯЁ])[a-zA-Zа-яёА-ЯЁ]*/g);
+			if (scalar(@matches) > 0) {
+				push @{$this->{'data'}}, "Found at line $idx: " . join(' ', @matches);
+			}
+		},
+		'report' => sub ($$) {
+			my ($this, $fo) = @_;
+			print $fo join('', map { "\t$_\n" } @{$this->{'data'}});
+		}
+	},
+	{
+		# Template for adding new tests
 		'enabled' => 0,
 		'name' => 'Template',
 		'data' => [],
